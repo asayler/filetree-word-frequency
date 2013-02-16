@@ -13,8 +13,8 @@ CPPL = g++
 CPPCFLAGS = -c -g -Wall -Wextra
 CPPLFLAGS = -g -Wall -Wextra
 
-MAINEXECUTABLES    =
-EXAMPLEEXECUTABLES = simple_ls 
+MAINEXECUTABLES    = wordfreq
+EXAMPLEEXECUTABLES = simple_ls
 TESTEXECUTABLES    = 
 
 BOOSTLIBS = -lboost_filesystem
@@ -23,8 +23,14 @@ BOOSTLIBS = -lboost_filesystem
 
 all: $(MAINEXECUTABLES) $(EXAMPLEEXECUTABLES) $(TESTEXECUTABLES)
 
+wordfreq: wordfreq.o
+	$(CPPL) $(CPPLFLAGS) $^ $(BOOSTLIBS) -o $@
+
 simple_ls: simple_ls.o
 	$(CPPL) $(CPPLFLAGS) $^ $(BOOSTLIBS) -o $@
+
+wordfreq.o: wordfreq.cpp
+	$(CPPC) $(CPPCFLAGS) $< -o $@
 
 simple_ls.o: simple_ls.cpp
 	$(CPPC) $(CPPCFLAGS) $< -o $@

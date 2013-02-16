@@ -1,3 +1,9 @@
+# Editor Temp Files
 *~
+
+# Build Files
 *.o
+
+# Exectuables
+wordfreq
 simple_ls
