@@ -7,20 +7,31 @@
 #	This is the Makefile for the main
 #	filetree-word-frequency program
 
-CPP = g++
+CPPC = g++
+CPPL = g++
 
-CPPFLAGS = -c -g -Wall -Wextra
-LPPFLAGS = -g -Wall -Wextra
+CPPCFLAGS = -c -g -Wall -Wextra
+CPPLFLAGS = -g -Wall -Wextra
 
-MAINEXECUTABLES = 
-TESTEXECUTABLES = 
+MAINEXECUTABLES    =
+EXAMPLEEXECUTABLES = simple_ls 
+TESTEXECUTABLES    = 
+
+BOOSTLIBS = -lboost_filesystem
 
 .PHONY: all clean install
 
-all: $(MAINEXECUTABLES) $(TESTEXECUTABLES)
+all: $(MAINEXECUTABLES) $(EXAMPLEEXECUTABLES) $(TESTEXECUTABLES)
+
+simple_ls: simple_ls.o
+	$(CPPL) $(CPPLFLAGS) $^ $(BOOSTLIBS) -o $@
+
+simple_ls.o: simple_ls.cpp
+	$(CPPC) $(CPPCFLAGS) $< -o $@
 
 clean:
 	$(RM) $(MAINEXECUTABLES)
+	$(RM) $(EXAMPLEEXECUTABLES)
 	$(RM) $(TESTEXECUTABLES)
 	$(RM) *.o
 	$(RM) *~
