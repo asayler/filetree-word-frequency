@@ -90,7 +90,7 @@ static void mapFiles(fs::path startp){
 	}
     }
     catch(const std::exception & ex){
-	std::cout << startp.filename() << " " << ex.what() << std::endl;
+	std::cerr << startp.filename() << " " << ex.what() << std::endl;
     }
     
 }
