@@ -17,7 +17,7 @@ MAINEXECUTABLES    = wordfreq
 EXAMPLEEXECUTABLES = simple_ls
 TESTEXECUTABLES    = 
 
-BOOSTLIBS = -lboost_filesystem
+BOOSTLIBS = -lboost_filesystem -lboost_thread -lboost_system
 
 .PHONY: all clean install
 

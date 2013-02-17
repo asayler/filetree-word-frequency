@@ -25,7 +25,8 @@
 // the Boost Software License, Version 1.0. (See accompanying file
 // BOOST_LICENSE_1_0 or copy at http://www.boost.org/LICENSE_1_0.txt)
 
-// *** BOOST Filesystem Include ***
+
+// *** BOOST Includes ***
 #define BOOST_FILESYSTEM_VERSION 3
 
 #ifndef BOOST_FILESYSTEM_NO_DEPRECATED 
@@ -35,10 +36,13 @@
 #  define BOOST_SYSTEM_NO_DEPRECATED
 #endif
 
-#include "boost/filesystem.hpp"
+#include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
 
-namespace fs = boost::filesystem;
+#include <boost/thread.hpp>
+
+namespace bt = boost;
+namespace fs = bt::filesystem;
 
 // *** Std Library Includes ***
 #include <stdlib.h>
@@ -57,11 +61,71 @@ namespace fs = boost::filesystem;
 
 // *** Local Prototypes ***
 static void findFiles(fs::path startp, std::set<fs::path> types);
-static void processFile(fs::path filep);
+static void processFile();
+
+template <typename T>
+class PC_Queue{
+private:
+    std::queue<T> q;
+    bt::mutex m;
+    bt::condition_variable c;
+    bool closed;
+    T finished;
+
+public:
+    PC_Queue(T fin){
+	finished = fin;
+	closed = false;
+	std::cerr << "fin = " << fin << std::endl;
+    }
+
+    void push(const T &data){
+	bt::mutex::scoped_lock l(m);
+	if(!closed){
+	    std::cerr << "pushing " << data << std::endl;
+	    q.push(data);
+	    c.notify_one();
+	}
+	else{
+	    throw;
+	}
+    }
+    
+    T pop(){
+	bt::mutex::scoped_lock l(m);
+	std::cerr << "poping..." << std::endl;
+	if(q.empty() && !closed){
+	    std::cerr << "queue empty: waiting..." << std::endl;
+	    c.wait(l);
+	}
+	T ret;
+	if(!q.empty()){
+	    ret = q.front();
+	    q.pop();
+	    std::cerr << "poped " << ret << std::endl;
+	}
+	else if(closed){
+	    ret = finished;
+	}
+	else{
+	    //Should not get here
+	    throw;
+	}
+	return ret;
+    }
+
+    void close(){
+	bt::mutex::scoped_lock l(m);
+	std::cerr << "closing..." << std::endl;
+	closed = true;
+	c.notify_all();
+    }
+};
 
 // *** Globals ***
-std::queue<fs::path>       gFiles; 
+PC_Queue<fs::path>         gFiles(fs::path("")); 
 std::map<std::string, int> gWords; 
+bool producersFinished = false;
 
 struct WordCount{
     std::string word;
@@ -106,15 +170,14 @@ int main(int argc, char* argv[]){
     }
 
     // File Search
-    findFiles(rootp, types);
-    
-    // File Processing
-    while(!gFiles.empty()){
-	std::cout << gFiles.front() << std::endl;
-	processFile(gFiles.front());
-	gFiles.pop();
-    }
+    bt::thread tFind(findFiles, rootp, types);
+    //findFiles(rootp, types);
+    tFind.join();
+    gFiles.close();
 
+    // File Processing
+    processFile();
+   
     // Process Map
     std::list<WordCount> wordCounts;
     for(std::map<std::string, int>::iterator i = gWords.begin(); i != gWords.end(); ++i){
@@ -165,39 +228,43 @@ static void findFiles(fs::path startp, std::set<fs::path> types){
 }
 
 // Function to read file and record word frequency
-static void processFile(fs::path filep){
+static void processFile(){
     
-    fs::ifstream file(filep);
+    for(fs::path p = gFiles.pop(); !p.empty(); p = gFiles.pop()){
+	std::cout << p << std::endl;
 
-    if(file.is_open()){
+	fs::ifstream file(p);
+
+	if(file.is_open()){
 	
-	std::string word;
+	    std::string word;
 	
-	while(file >> word){
-	    std::transform(word.begin(), word.end(), word.begin(), ::tolower);
-	    std::string::iterator start = word.begin();
-	    std::string::iterator end   = word.begin();
-	    while(start != word.end()){
-		while(start != word.end() && !legalChar(*start)){
-		    start++;
-		}
-		end = start;
-		while(end != word.end() && legalChar(*end)){
-		    end++;
-		}
-		if(start < end){
-		    std::string subWord(start, end);
-		    ++gWords[subWord];
-		    start = end;
+	    while(file >> word){
+		std::transform(word.begin(), word.end(), word.begin(), ::tolower);
+		std::string::iterator start = word.begin();
+		std::string::iterator end   = word.begin();
+		while(start != word.end()){
+		    while(start != word.end() && !legalChar(*start)){
+			start++;
+		    }
+		    end = start;
+		    while(end != word.end() && legalChar(*end)){
+			end++;
+		    }
+		    if(start < end){
+			std::string subWord(start, end);
+			++gWords[subWord];
+			start = end;
+		    }
 		}
 	    }
+    
+	    file.close();	
 	}
-    
-	file.close();	
-    }
-    else{
-	std::cerr << "Could not open file " << filep << std::endl;
-    }
-    
+	else{
+	    std::cerr << "Could not open file " << p << std::endl;
+	}
+    }    
+
     return;
 }
