@@ -210,8 +210,7 @@ int main(int argc, char* argv[]){
     return 0;
 }
 
-// Function to find all files of a set of types in the tree rooted
-// at startp
+// Function to find all files of a set of types in tree startp
 static void findFiles(fs::path startp, std::set<fs::path> types){
 
     try{
@@ -222,7 +221,7 @@ static void findFiles(fs::path startp, std::set<fs::path> types){
 	    }
 	}
 	else if(fs::is_regular_file(startp)){
-	    //Add path if of proper type
+	    //Add path to queue if of proper type
 	    fs::path ext = startp.extension();
 	    if(types.find(ext) != types.end()){
 		gFiles.push(startp);
@@ -239,7 +238,7 @@ static void findFiles(fs::path startp, std::set<fs::path> types){
     return;
 }
 
-// Function to read file and record word frequency
+// Function to read files from queue and record word frequency
 static void processFile(){
     
     for(fs::path p = gFiles.pop(); !p.empty(); p = gFiles.pop()){
@@ -255,7 +254,7 @@ static void processFile(){
 		std::transform(word.begin(), word.end(), word.begin(), ::tolower);
 		std::string::iterator start = word.begin();
 		std::string::iterator end   = word.begin();
-		while(start != word.end()){
+		while(sytart != word.end()){
 		    while(start != word.end() && !legalChar(*start)){
 			start++;
 		    }
