@@ -58,10 +58,7 @@ namespace fs = bt::filesystem;
 // *** Constants ***
 #define FILE_EXT_DELIM '.'
 #define HEAD_PRINT_CNT 10
-
-// *** Local Prototypes ***
-static void findFiles(fs::path startp, std::set<fs::path> types);
-static void processFile();
+#define COUNTER_THREADS 5
 
 template <typename K, typename V>
 class TS_Map{
@@ -113,11 +110,11 @@ public:
     }
     
     T pop(){
+	T ret;
 	bt::mutex::scoped_lock l(m);
-	if(q.empty() && !closed){
+	while(q.empty() && !closed){
 	    c.wait(l);
 	}
-	T ret;
 	if(!q.empty()){
 	    ret = q.front();
 	    q.pop();
@@ -126,7 +123,10 @@ public:
 	    ret = finished;
 	}
 	else{
-	    //Should not get here
+	    //If locks are working, we should not get here
+	    std::cerr << "Unhandeld Case" << std::endl;
+	    std::cerr << "q.empty() = " << q.empty() << std::endl;
+	    std::cerr << "closed = " << closed << std::endl;
 	    throw;
 	}
 	return ret;
@@ -143,6 +143,9 @@ public:
 PC_Queue<fs::path>       gFiles(fs::path("")); 
 TS_Map<std::string, int> gWords; 
 
+// *** Local Prototypes ***
+static void findFiles(fs::path startp, std::set<fs::path> types);
+static void processFile();
 
 // *** Test Functions ***
 bool compare_word_counts(std::pair<std::string, int> first, std::pair<std::string, int> second){
@@ -160,6 +163,9 @@ int main(int argc, char* argv[]){
 
     fs::path ext(".txt");
     types.insert(ext);
+
+    bt::thread_group finders;
+    bt::thread_group counters;
 
     // Input Processing
     if(argc == 1){
@@ -181,22 +187,33 @@ int main(int argc, char* argv[]){
     }
 
     // File Search
-    bt::thread tFind(findFiles, rootp, types);
-    //findFiles(rootp, types);
+    finders.add_thread(new bt::thread(findFiles, rootp, types));
     
     // File Processing
-    bt::thread tProcess(processFile);
+    for(int i = 0; i < COUNTER_THREADS; i++){
+	counters.add_thread(new bt::thread(processFile));
+    }
    
     // Wait on Producers
-    tFind.join();
+    finders.join_all();
     gFiles.close();
 
     // Wait of Consumers
-    tProcess.join();
+    counters.join_all();
 
     // Process and Print Map
     std::list< std::pair<std::string, int> > wordCounts = gWords.getList();
     wordCounts.sort(compare_word_counts);
+    for (std::list< std::pair<std::string, int> >::iterator i = wordCounts.begin();
+	 i != wordCounts.end(); i++){
+	if(std::distance(wordCounts.begin(), i) < HEAD_PRINT_CNT){
+	    std::cout << i->second << " - " << i->first << std::endl;
+	}
+	else{
+	    break;
+	}
+    }
+    wordCounts.reverse();
     for (std::list< std::pair<std::string, int> >::iterator i = wordCounts.begin();
 	 i != wordCounts.end(); i++){
 	if(std::distance(wordCounts.begin(), i) < HEAD_PRINT_CNT){
