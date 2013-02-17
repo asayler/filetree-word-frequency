@@ -25,7 +25,7 @@
 // the Boost Software License, Version 1.0. (See accompanying file
 // BOOST_LICENSE_1_0 or copy at http://www.boost.org/LICENSE_1_0.txt)
 
-// *** BOOST Filesystem ***
+// *** BOOST Filesystem Include ***
 #define BOOST_FILESYSTEM_VERSION 3
 
 #ifndef BOOST_FILESYSTEM_NO_DEPRECATED 
@@ -39,20 +39,26 @@
 
 namespace fs = boost::filesystem;
 
-
-// *** Std Library ***
+// *** Std Library Includes ***
 #include <stdlib.h>
 #include <iostream>
+#include <map>
 #include <set>
 #include <string>
 #include <queue>
 
+// *** Constants ***
 #define FILE_EXT_DELIM '.'
 
+// *** Local Prototypes ***
 static void findFiles(fs::path startp, std::set<fs::path> types);
+static void processFile(fs::path filep);
 
-std::queue<fs::path> files; 
+// *** Globals ***
+std::queue<fs::path>  files; 
+std::map<std::string, int> words; 
 
+// *** Main Entry ***
 int main(int argc, char* argv[]){
     
     fs::path rootp("");
@@ -61,6 +67,7 @@ int main(int argc, char* argv[]){
     fs::path ext(".txt");
     types.insert(ext);
 
+    // Input Processing
     if(argc == 1){
 	rootp = fs::current_path();
     }
@@ -78,16 +85,21 @@ int main(int argc, char* argv[]){
 	exit(EXIT_FAILURE);
     }
 
+    // File Search
     findFiles(rootp, types);
     
+    // File Processing
     while(!files.empty()){
 	std::cout << files.front() << std::endl;
+	processFile(files.front());
 	files.pop();
     }
 
     return 0;
 }
 
+// Function to find all files of a set of types in the tree rooted
+// at startp
 static void findFiles(fs::path startp, std::set<fs::path> types){
 
     try{
@@ -112,5 +124,13 @@ static void findFiles(fs::path startp, std::set<fs::path> types){
 	std::cerr << startp.filename() << " " << ex.what() << std::endl;
     }
  
+    return;
+}
+
+// Function to read file and record word frequency
+static void processFile(fs::path filep){
+    
+    
+
     return;
 }
