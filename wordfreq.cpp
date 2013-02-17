@@ -40,15 +40,26 @@
 namespace fs = boost::filesystem;
 
 
-// ** Std Library ***
-#include <iostream>
+// *** Std Library ***
 #include <stdlib.h>
+#include <iostream>
+#include <set>
+#include <string>
+#include <queue>
 
-static void mapFiles(fs::path startp);
+#define FILE_EXT_DELIM '.'
+
+static void findFiles(fs::path startp, std::set<fs::path> types);
+
+std::queue<fs::path> files; 
 
 int main(int argc, char* argv[]){
     
     fs::path rootp("");
+    std::set<fs::path> types;
+
+    fs::path ext(".txt");
+    types.insert(ext);
 
     if(argc == 1){
 	rootp = fs::current_path();
@@ -66,31 +77,40 @@ int main(int argc, char* argv[]){
 	std::cerr << "Path " << rootp << " not found!" << std::endl;
 	exit(EXIT_FAILURE);
     }
+
+    findFiles(rootp, types);
     
-    mapFiles(rootp);
+    while(!files.empty()){
+	std::cout << files.front() << std::endl;
+	files.pop();
+    }
 
     return 0;
 }
 
-static void mapFiles(fs::path startp){
+static void findFiles(fs::path startp, std::set<fs::path> types){
 
     try{
 	if(fs::is_directory(startp)){
-	    std::cout << startp.filename() << " [directory]\n";
 	    fs::directory_iterator end_iter;
 	    for(fs::directory_iterator dir_itr(startp); dir_itr != end_iter; ++dir_itr){    
-		mapFiles(dir_itr->path());
+		findFiles(dir_itr->path(), types);
 	    }
 	}
 	else if(fs::is_regular_file(startp)){
-	    std::cout << startp.filename() << "\n";    
+	    //Add path if of proper type
+	    fs::path ext = startp.extension();
+	    if(types.find(ext) != types.end()){
+		files.push(startp);
+	    }
 	}
 	else{
-	    std::cout << startp.filename() << " [other]\n";
+	    // Do Nothing
 	}
     }
     catch(const std::exception & ex){
 	std::cerr << startp.filename() << " " << ex.what() << std::endl;
     }
-    
+ 
+    return;
 }
