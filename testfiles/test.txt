@@ -2,3 +2,5 @@ This is a test.
 Did the test work?
 Or did it not work?
 What about half-working?
+Did it work 3 times, or did it work 9?
+If it worked 3 times, there should be 3 3s.

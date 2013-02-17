@@ -179,14 +179,14 @@ static void processFile(fs::path filep){
 	while(1){
 	    if(i != word.end()){
 		*i = tolower(*i);
-		if(*i >= 'a' && *i <= 'z'){
+		if((*i >= 'a' && *i <= 'z') || (*i >= '0' && *i <= '9')){
 		    end = i;
 		    i++;
 		}
 		else{
 		    std::string subWord(start, end+1);
 		    ++gWords[subWord];
-		    while(i != word.end() && !(*i > 'a' && *i < 'z')){		
+		    while(i != word.end() && !((*i >= 'a' && *i <= 'z') || (*i >= '0' && *i <= '9'))){		
 			i++;
 		    }
 		    start = i;
