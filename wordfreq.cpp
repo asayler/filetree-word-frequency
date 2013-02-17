@@ -36,12 +36,16 @@
 #endif
 
 #include "boost/filesystem.hpp"
+#include <boost/filesystem/fstream.hpp>
 
 namespace fs = boost::filesystem;
 
 // *** Std Library Includes ***
 #include <stdlib.h>
+#include <algorithm>
 #include <iostream>
+#include <iterator>
+#include <list>
 #include <map>
 #include <set>
 #include <string>
@@ -49,14 +53,26 @@ namespace fs = boost::filesystem;
 
 // *** Constants ***
 #define FILE_EXT_DELIM '.'
+#define HEAD_PRINT_CNT 5
 
 // *** Local Prototypes ***
 static void findFiles(fs::path startp, std::set<fs::path> types);
 static void processFile(fs::path filep);
 
 // *** Globals ***
-std::queue<fs::path>  files; 
-std::map<std::string, int> words; 
+std::queue<fs::path>       gFiles; 
+std::map<std::string, int> gWords; 
+
+struct WordCount{
+    std::string word;
+    int count;
+
+    WordCount(std::string w="", int c=0):word(w), count(c){}
+};
+
+bool compare_WordCount(WordCount first, WordCount second){
+    return first.count > second.count;
+}
 
 // *** Main Entry ***
 int main(int argc, char* argv[]){
@@ -89,10 +105,27 @@ int main(int argc, char* argv[]){
     findFiles(rootp, types);
     
     // File Processing
-    while(!files.empty()){
-	std::cout << files.front() << std::endl;
-	processFile(files.front());
-	files.pop();
+    while(!gFiles.empty()){
+	std::cout << gFiles.front() << std::endl;
+	processFile(gFiles.front());
+	gFiles.pop();
+    }
+
+    // Process Map
+    std::list<WordCount> wordCounts;
+    for(std::map<std::string, int>::iterator i = gWords.begin(); i != gWords.end(); ++i){
+	//std::cout << i->first << " - " << i->second << std::endl;
+	WordCount wc(i->first, i->second);
+	wordCounts.push_back(wc);
+    }
+    wordCounts.sort(compare_WordCount);
+    for (std::list<WordCount>::iterator i = wordCounts.begin(); i != wordCounts.end(); i++){
+	if(std::distance(wordCounts.begin(), i) < HEAD_PRINT_CNT){
+	    std::cout << i->word << " - " << i->count << std::endl;
+	}
+	else{
+	    break;
+	}
     }
 
     return 0;
@@ -113,7 +146,7 @@ static void findFiles(fs::path startp, std::set<fs::path> types){
 	    //Add path if of proper type
 	    fs::path ext = startp.extension();
 	    if(types.find(ext) != types.end()){
-		files.push(startp);
+		gFiles.push(startp);
 	    }
 	}
 	else{
@@ -130,7 +163,46 @@ static void findFiles(fs::path startp, std::set<fs::path> types){
 // Function to read file and record word frequency
 static void processFile(fs::path filep){
     
-    
+    fs::ifstream file(filep);
+
+    if(!file.is_open()){
+	std::cerr << "Could not open file " << filep << std::endl;
+    }
+
+    std::string word;
+
+    while(file >> word){
+	//std::transform(word.begin(), word.end(), word.begin(), ::tolower);
+	std::string::iterator start = word.begin();
+	std::string::iterator end   = word.begin();
+	std::string::iterator i = word.begin();
+	while(1){
+	    if(i != word.end()){
+		*i = tolower(*i);
+		if(*i >= 'a' && *i <= 'z'){
+		    end = i;
+		    i++;
+		}
+		else{
+		    std::string subWord(start, end+1);
+		    ++gWords[subWord];
+		    while(i != word.end() && !(*i > 'a' && *i < 'z')){		
+			i++;
+		    }
+		    start = i;
+		}
+	    }
+	    else{
+		if(start < end+1){
+		    std::string subWord(start, end+1);
+		    ++gWords[subWord];
+		}
+		break;
+	    }
+	}
+    }
+
+    file.close();
 
     return;
 }
