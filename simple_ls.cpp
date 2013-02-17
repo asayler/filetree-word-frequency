@@ -27,6 +27,7 @@ namespace fs = boost::filesystem;
 
 int main(int argc, char* argv[])
 {
+    
     fs::path p(fs::current_path());
 
     if (argc > 1)

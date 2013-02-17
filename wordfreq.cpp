@@ -35,14 +35,32 @@
 #  define BOOST_SYSTEM_NO_DEPRECATED
 #endif
 
-#include "boost/filesystem/operations.hpp"
-#include "boost/filesystem/path.hpp"
-
-// *** Std Library ***
-#include <iostream>
+#include "boost/filesystem.hpp"
 
 namespace fs = boost::filesystem;
 
+
+// ** Std Library ***
+#include <iostream>
+#include <stdlib.h>
+
 int main(int argc, char* argv[]){
+    
+    fs::path rootp("");
+
+    if(argc == 1){
+	rootp = fs::current_path();
+    }
+    else if(argc == 2){
+	rootp = fs::system_complete(argv[1]);
+    }
+    else{
+	std::cerr << "usage:   simple_ls"        << std::endl;
+	std::cerr << "         simple_ls <path>" << std::endl;
+	exit(EXIT_FAILURE);
+    }
+
+    std::cout << "rootp = " << rootp << std::endl;
+
     return 0;
 }
