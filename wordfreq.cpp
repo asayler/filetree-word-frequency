@@ -44,6 +44,8 @@ namespace fs = boost::filesystem;
 #include <iostream>
 #include <stdlib.h>
 
+static void mapFiles(fs::path startp);
+
 int main(int argc, char* argv[]){
     
     fs::path rootp("");
@@ -60,7 +62,35 @@ int main(int argc, char* argv[]){
 	exit(EXIT_FAILURE);
     }
 
-    std::cout << "rootp = " << rootp << std::endl;
+    if(!fs::exists(rootp)){
+	std::cerr << "Path " << rootp << " not found!" << std::endl;
+	exit(EXIT_FAILURE);
+    }
+    
+    mapFiles(rootp);
 
     return 0;
+}
+
+static void mapFiles(fs::path startp){
+
+    try{
+	if(fs::is_directory(startp)){
+	    std::cout << startp.filename() << " [directory]\n";
+	    fs::directory_iterator end_iter;
+	    for(fs::directory_iterator dir_itr(startp); dir_itr != end_iter; ++dir_itr){    
+		mapFiles(dir_itr->path());
+	    }
+	}
+	else if(fs::is_regular_file(startp)){
+	    std::cout << startp.filename() << "\n";    
+	}
+	else{
+	    std::cout << startp.filename() << " [other]\n";
+	}
+    }
+    catch(const std::exception & ex){
+	std::cout << startp.filename() << " " << ex.what() << std::endl;
+    }
+    
 }
