@@ -32,17 +32,19 @@
 #ifndef BOOST_FILESYSTEM_NO_DEPRECATED 
 #  define BOOST_FILESYSTEM_NO_DEPRECATED
 #endif
+
 #ifndef BOOST_SYSTEM_NO_DEPRECATED 
 #  define BOOST_SYSTEM_NO_DEPRECATED
 #endif
 
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
-
 #include <boost/thread.hpp>
+#include <boost/program_options.hpp>
 
 namespace bt = boost;
 namespace fs = bt::filesystem;
+namespace po = bt::program_options;
 
 // *** Std Library Includes ***
 #include <stdlib.h>
@@ -54,6 +56,7 @@ namespace fs = bt::filesystem;
 #include <set>
 #include <string>
 #include <queue>
+#include <vector>
 
 // *** Constants ***
 #define FILE_EXT_DELIM '.'
@@ -158,37 +161,69 @@ bool legalChar(char c){
 // *** Main Entry ***
 int main(int argc, char* argv[]){
     
-    fs::path rootp("");
-    std::set<fs::path> types;
+    // Local Vars
+    std::vector<fs::path> searchPaths;
 
+    std::set<fs::path> types;
     fs::path ext(".txt");
     types.insert(ext);
 
     bt::thread_group finders;
     bt::thread_group counters;
 
-    // Input Processing
-    if(argc == 1){
-	rootp = fs::current_path();
-    }
-    else if(argc == 2){
-	rootp = fs::system_complete(argv[1]);
-    }
-    else{
-	std::cerr << "usage:   simple_ls"        << std::endl;
-	std::cerr << "         simple_ls <path>" << std::endl;
-	exit(EXIT_FAILURE);
-    }
+    // Parse Input
+    try{
+	po::options_description desc("Allowed options");
+        desc.add_options()
+            ("help,h", "produce help message")
+	    ("input-files", po::value< std::vector<std::string> >(), "input file")
+	    ;
 
-    // Input Validation
-    if(!fs::exists(rootp)){
-	std::cerr << "Path " << rootp << " not found!" << std::endl;
+	po::positional_options_description p;
+        p.add("input-files", -1);
+	
+	po::variables_map vm;        
+	po::store(po::command_line_parser(argc, argv).options(desc).positional(p).run(), vm);
+	po::notify(vm);    
+
+        if(vm.count("help")){
+	    std::cout << desc << "\n";
+            return EXIT_SUCCESS;
+        }
+
+	if(vm.count("input-files")){
+	    std::vector<std::string> paths;
+	    paths = vm["input-files"].as< std::vector<std::string> >();
+	    for (std::vector<std::string>::iterator i = paths.begin() ; i != paths.end(); ++i){
+		fs::path tmpPath(*i);
+		searchPaths.push_back(tmpPath);
+	    }
+	}
+	else{
+	    // Default = Current Directory
+	    searchPaths.clear();
+	    searchPaths.push_back(fs::current_path());
+	}
+    }
+    catch(const std::exception &e) {
+	std::cerr << "error: " << e.what() << "\n";
+        exit(EXIT_FAILURE);
+    }
+    catch(...) {
+	std::cerr << "Exception of unknown type!\n";
 	exit(EXIT_FAILURE);
     }
 
     // File Search
-    finders.add_thread(new bt::thread(findFiles, rootp, types));
-    
+    for (std::vector<fs::path>::iterator i = searchPaths.begin(); i != searchPaths.end(); ++i){
+	if(fs::exists(*i)){
+	    finders.add_thread(new bt::thread(findFiles, *i, types));
+	}
+	else{
+	    std::cerr << "Path " << *i << " not found!" << std::endl;
+	}	
+    }
+
     // File Processing
     for(int i = 0; i < COUNTER_THREADS; i++){
 	counters.add_thread(new bt::thread(processFile));
@@ -261,7 +296,6 @@ static void findFiles(fs::path startp, std::set<fs::path> types){
 static void processFile(){
     
     for(fs::path p = gFiles.pop(); !p.empty(); p = gFiles.pop()){
-	std::cout << p << std::endl;
 
 	fs::ifstream file(p);
 
