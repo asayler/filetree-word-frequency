@@ -74,6 +74,10 @@ bool compare_WordCount(WordCount first, WordCount second){
     return first.count > second.count;
 }
 
+bool legalChar(char c){
+    return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9');
+}
+
 // *** Main Entry ***
 int main(int argc, char* argv[]){
     
@@ -165,44 +169,35 @@ static void processFile(fs::path filep){
     
     fs::ifstream file(filep);
 
-    if(!file.is_open()){
-	std::cerr << "Could not open file " << filep << std::endl;
-    }
-
-    std::string word;
-
-    while(file >> word){
-	//std::transform(word.begin(), word.end(), word.begin(), ::tolower);
-	std::string::iterator start = word.begin();
-	std::string::iterator end   = word.begin();
-	std::string::iterator i = word.begin();
-	while(1){
-	    if(i != word.end()){
-		*i = tolower(*i);
-		if((*i >= 'a' && *i <= 'z') || (*i >= '0' && *i <= '9')){
-		    end = i;
-		    i++;
+    if(file.is_open()){
+	
+	std::string word;
+	
+	while(file >> word){
+	    std::transform(word.begin(), word.end(), word.begin(), ::tolower);
+	    std::string::iterator start = word.begin();
+	    std::string::iterator end   = word.begin();
+	    while(start != word.end()){
+		while(start != word.end() && !legalChar(*start)){
+		    start++;
 		}
-		else{
-		    std::string subWord(start, end+1);
+		end = start;
+		while(end != word.end() && legalChar(*end)){
+		    end++;
+		}
+		if(start < end){
+		    std::string subWord(start, end);
 		    ++gWords[subWord];
-		    while(i != word.end() && !((*i >= 'a' && *i <= 'z') || (*i >= '0' && *i <= '9'))){		
-			i++;
-		    }
-		    start = i;
+		    start = end;
 		}
-	    }
-	    else{
-		if(start < end+1){
-		    std::string subWord(start, end+1);
-		    ++gWords[subWord];
-		}
-		break;
 	    }
 	}
+    
+	file.close();	
     }
-
-    file.close();
-
+    else{
+	std::cerr << "Could not open file " << filep << std::endl;
+    }
+    
     return;
 }
