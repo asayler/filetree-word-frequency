@@ -60,7 +60,7 @@ namespace fs = bt::filesystem;
 #define HEAD_PRINT_CNT 5
 
 // *** Local Prototypes ***
-static void findFiles(fs::path startp, std::set<fs::path> types);
+static void findFiles(fs::path startp, std::set<fs::path> types, bool top);
 static void processFile();
 
 template <typename T>
@@ -80,15 +80,19 @@ public:
     }
 
     void push(const T &data){
+	std::cerr << "push locking" << std::endl;
 	bt::mutex::scoped_lock l(m);
 	if(!closed){
 	    std::cerr << "pushing " << data << std::endl;
 	    q.push(data);
+	    std::cerr << "signaling one..." << std::endl;
 	    c.notify_one();
 	}
 	else{
+	    std::cerr << "ERROR can't push to closed queue" << std::endl;
 	    throw;
 	}
+	std::cerr << "push done" << std::endl;
     }
     
     T pop(){
@@ -97,6 +101,7 @@ public:
 	if(q.empty() && !closed){
 	    std::cerr << "queue empty: waiting..." << std::endl;
 	    c.wait(l);
+	    std::cerr << "done waiting..." << std::endl;
 	}
 	T ret;
 	if(!q.empty()){
@@ -115,9 +120,10 @@ public:
     }
 
     void close(){
-	bt::mutex::scoped_lock l(m);
+	//bt::mutex::scoped_lock l(m);
 	std::cerr << "closing..." << std::endl;
 	closed = true;
+	std::cerr << "signaling all..." << std::endl;
 	c.notify_all();
     }
 };
@@ -170,14 +176,23 @@ int main(int argc, char* argv[]){
     }
 
     // File Search
-    bt::thread tFind(findFiles, rootp, types);
+    bt::thread tFind(findFiles, rootp, types, true);
     //findFiles(rootp, types);
+    
+    // File Processing
+    bt::thread tProcess(processFile);
+   
+    // Wait on Producers
+    std::cerr << "waiting on tFind join" << std::endl;
     tFind.join();
+    std::cerr << "tFind joined, calling close" << std::endl;
     gFiles.close();
 
-    // File Processing
-    processFile();
-   
+    // Wait of Consumers
+    std::cerr << "waiting on tProcess join" << std::endl;
+    tProcess.join();
+    std::cerr << "tProcess joined" << std::endl;
+
     // Process Map
     std::list<WordCount> wordCounts;
     for(std::map<std::string, int>::iterator i = gWords.begin(); i != gWords.end(); ++i){
@@ -200,13 +215,13 @@ int main(int argc, char* argv[]){
 
 // Function to find all files of a set of types in the tree rooted
 // at startp
-static void findFiles(fs::path startp, std::set<fs::path> types){
+static void findFiles(fs::path startp, std::set<fs::path> types, bool top){
 
     try{
 	if(fs::is_directory(startp)){
 	    fs::directory_iterator end_iter;
 	    for(fs::directory_iterator dir_itr(startp); dir_itr != end_iter; ++dir_itr){    
-		findFiles(dir_itr->path(), types);
+		findFiles(dir_itr->path(), types, false);
 	    }
 	}
 	else if(fs::is_regular_file(startp)){
@@ -224,6 +239,12 @@ static void findFiles(fs::path startp, std::set<fs::path> types){
 	std::cerr << startp.filename() << " " << ex.what() << std::endl;
     }
  
+    if(top){
+	std::cerr << "find top done running" << std::endl;
+	//gFiles.close();
+    }
+
+    //std::cerr << "find returning" << std::endl;
     return;
 }
 
