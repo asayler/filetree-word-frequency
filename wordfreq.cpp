@@ -214,21 +214,23 @@ int main(int argc, char* argv[]){
 static void findFiles(fs::path startp, std::set<fs::path> types){
 
     try{
-	if(fs::is_directory(startp)){
-	    fs::directory_iterator end_iter;
-	    for(fs::directory_iterator dir_itr(startp); dir_itr != end_iter; ++dir_itr){    
-		findFiles(dir_itr->path(), types);
+	if(!fs::is_symlink(startp)){
+	    if(fs::is_directory(startp)){
+		fs::directory_iterator end_iter;
+		for(fs::directory_iterator dir_itr(startp); dir_itr != end_iter; ++dir_itr){    
+		    findFiles(dir_itr->path(), types);
+		}
 	    }
-	}
-	else if(fs::is_regular_file(startp)){
-	    //Add path to queue if of proper type
-	    fs::path ext = startp.extension();
-	    if(types.find(ext) != types.end()){
-		gFiles.push(startp);
+	    else if(fs::is_regular_file(startp)){
+		//Add path to queue if of proper type
+		fs::path ext = startp.extension();
+		if(types.find(ext) != types.end()){
+		    gFiles.push(startp);
+		}
 	    }
-	}
-	else{
-	    // Do Nothing
+	    else{
+		// Do Nothing
+	    }
 	}
     }
     catch(const std::exception & ex){
@@ -254,7 +256,7 @@ static void processFile(){
 		std::transform(word.begin(), word.end(), word.begin(), ::tolower);
 		std::string::iterator start = word.begin();
 		std::string::iterator end   = word.begin();
-		while(sytart != word.end()){
+		while(start != word.end()){
 		    while(start != word.end() && !legalChar(*start)){
 			start++;
 		    }
