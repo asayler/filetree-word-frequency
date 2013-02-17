@@ -57,11 +57,34 @@ namespace fs = bt::filesystem;
 
 // *** Constants ***
 #define FILE_EXT_DELIM '.'
-#define HEAD_PRINT_CNT 5
+#define HEAD_PRINT_CNT 10
 
 // *** Local Prototypes ***
-static void findFiles(fs::path startp, std::set<fs::path> types, bool top);
+static void findFiles(fs::path startp, std::set<fs::path> types);
 static void processFile();
+
+template <typename K, typename V>
+class TS_Map{
+private:
+    std::map<K, V> map;
+    bt::mutex m;
+
+public:
+    V& operator[] (const K &key){
+	bt::mutex::scoped_lock l(m);
+	return map[key];
+    }
+
+    std::list< std::pair<K, V> > getList(){
+	bt::mutex::scoped_lock l(m);
+	std::list< std::pair<K, V> > lst;
+	for(typename std::map<K, V>::iterator i = map.begin(); i != map.end(); ++i){
+	    lst.push_back(*i);
+	}
+	return lst;
+    }
+
+};
 
 template <typename T>
 class PC_Queue{
@@ -76,38 +99,28 @@ public:
     PC_Queue(T fin){
 	finished = fin;
 	closed = false;
-	std::cerr << "fin = " << fin << std::endl;
     }
 
     void push(const T &data){
-	std::cerr << "push locking" << std::endl;
 	bt::mutex::scoped_lock l(m);
 	if(!closed){
-	    std::cerr << "pushing " << data << std::endl;
 	    q.push(data);
-	    std::cerr << "signaling one..." << std::endl;
 	    c.notify_one();
 	}
 	else{
-	    std::cerr << "ERROR can't push to closed queue" << std::endl;
 	    throw;
 	}
-	std::cerr << "push done" << std::endl;
     }
     
     T pop(){
 	bt::mutex::scoped_lock l(m);
-	std::cerr << "poping..." << std::endl;
 	if(q.empty() && !closed){
-	    std::cerr << "queue empty: waiting..." << std::endl;
 	    c.wait(l);
-	    std::cerr << "done waiting..." << std::endl;
 	}
 	T ret;
 	if(!q.empty()){
 	    ret = q.front();
 	    q.pop();
-	    std::cerr << "poped " << ret << std::endl;
 	}
 	else if(closed){
 	    ret = finished;
@@ -120,30 +133,21 @@ public:
     }
 
     void close(){
-	//bt::mutex::scoped_lock l(m);
-	std::cerr << "closing..." << std::endl;
+	bt::mutex::scoped_lock l(m);
 	closed = true;
-	std::cerr << "signaling all..." << std::endl;
 	c.notify_all();
     }
 };
 
 // *** Globals ***
-PC_Queue<fs::path>         gFiles(fs::path("")); 
-std::map<std::string, int> gWords; 
-bool producersFinished = false;
+PC_Queue<fs::path>       gFiles(fs::path("")); 
+TS_Map<std::string, int> gWords; 
 
-struct WordCount{
-    std::string word;
-    int count;
 
-    WordCount(std::string w="", int c=0):word(w), count(c){}
-};
-
-bool compare_WordCount(WordCount first, WordCount second){
-    return first.count > second.count;
+// *** Test Functions ***
+bool compare_word_counts(std::pair<std::string, int> first, std::pair<std::string, int> second){
+    return first.second > second.second;
 }
-
 bool legalChar(char c){
     return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9');
 }
@@ -170,58 +174,51 @@ int main(int argc, char* argv[]){
 	exit(EXIT_FAILURE);
     }
 
+    // Input Validation
     if(!fs::exists(rootp)){
 	std::cerr << "Path " << rootp << " not found!" << std::endl;
 	exit(EXIT_FAILURE);
     }
 
     // File Search
-    bt::thread tFind(findFiles, rootp, types, true);
+    bt::thread tFind(findFiles, rootp, types);
     //findFiles(rootp, types);
     
     // File Processing
     bt::thread tProcess(processFile);
    
     // Wait on Producers
-    std::cerr << "waiting on tFind join" << std::endl;
     tFind.join();
-    std::cerr << "tFind joined, calling close" << std::endl;
     gFiles.close();
 
     // Wait of Consumers
-    std::cerr << "waiting on tProcess join" << std::endl;
     tProcess.join();
-    std::cerr << "tProcess joined" << std::endl;
 
-    // Process Map
-    std::list<WordCount> wordCounts;
-    for(std::map<std::string, int>::iterator i = gWords.begin(); i != gWords.end(); ++i){
-	//std::cout << i->first << " - " << i->second << std::endl;
-	WordCount wc(i->first, i->second);
-	wordCounts.push_back(wc);
-    }
-    wordCounts.sort(compare_WordCount);
-    for (std::list<WordCount>::iterator i = wordCounts.begin(); i != wordCounts.end(); i++){
+    // Process and Print Map
+    std::list< std::pair<std::string, int> > wordCounts = gWords.getList();
+    wordCounts.sort(compare_word_counts);
+    for (std::list< std::pair<std::string, int> >::iterator i = wordCounts.begin();
+	 i != wordCounts.end(); i++){
 	if(std::distance(wordCounts.begin(), i) < HEAD_PRINT_CNT){
-	    std::cout << i->word << " - " << i->count << std::endl;
+	    std::cout << i->second << " - " << i->first << std::endl;
 	}
 	else{
 	    break;
 	}
     }
-
+    
     return 0;
 }
 
 // Function to find all files of a set of types in the tree rooted
 // at startp
-static void findFiles(fs::path startp, std::set<fs::path> types, bool top){
+static void findFiles(fs::path startp, std::set<fs::path> types){
 
     try{
 	if(fs::is_directory(startp)){
 	    fs::directory_iterator end_iter;
 	    for(fs::directory_iterator dir_itr(startp); dir_itr != end_iter; ++dir_itr){    
-		findFiles(dir_itr->path(), types, false);
+		findFiles(dir_itr->path(), types);
 	    }
 	}
 	else if(fs::is_regular_file(startp)){
@@ -238,13 +235,7 @@ static void findFiles(fs::path startp, std::set<fs::path> types, bool top){
     catch(const std::exception & ex){
 	std::cerr << startp.filename() << " " << ex.what() << std::endl;
     }
- 
-    if(top){
-	std::cerr << "find top done running" << std::endl;
-	//gFiles.close();
-    }
 
-    //std::cerr << "find returning" << std::endl;
     return;
 }
 
