@@ -41,6 +41,7 @@
 #include <boost/filesystem/fstream.hpp>
 #include <boost/thread.hpp>
 #include <boost/program_options.hpp>
+#include <boost/algorithm/string.hpp>
 
 namespace bt = boost;
 namespace fs = bt::filesystem;
@@ -59,7 +60,12 @@ namespace po = bt::program_options;
 #include <vector>
 
 // *** Constants ***
-#define FILE_EXT_DELIM '.'
+#define FILE_EXT_DELIMINATOR "."
+#define TYPE_DELIMINATORS    ","
+#define TYPE_NONE            "."
+#define TYPE_ANY             "*"
+
+#define DEFAULT_FILETYPES "txt"
 #define HEAD_PRINT_CNT 10
 #define COUNTER_THREADS 5
 
@@ -163,37 +169,73 @@ int main(int argc, char* argv[]){
     
     // Local Vars
     std::vector<fs::path> searchPaths;
-
-    std::set<fs::path> types;
-    fs::path ext(".txt");
-    types.insert(ext);
+    std::set<fs::path> searchTypes;
 
     bt::thread_group finders;
     bt::thread_group counters;
 
     // Parse Input
     try{
-	po::options_description desc("Allowed options");
-        desc.add_options()
-            ("help,h", "produce help message")
-	    ("input-files", po::value< std::vector<std::string> >(), "input file")
+	po::options_description visible("Options");
+        visible.add_options()
+            ("help,h",
+	     ": produce help message")
+	    ("file-types,t", po::value<std::string>(),
+	     ": comma-seperated list of file extensions to scan\n"
+	     "  ('" TYPE_NONE  "' for no extension)")
 	    ;
 
-	po::positional_options_description p;
-        p.add("input-files", -1);
+	po::options_description hidden("Hidden Options");
+	hidden.add_options()
+	    ("input-paths", po::value< std::vector<std::string> >(), "input paths")
+	    ;
+
+	po::positional_options_description pos_opts;
+        pos_opts.add("input-paths", -1);
 	
+	po::options_description cli_opts;
+        cli_opts.add(visible).add(hidden);
+
 	po::variables_map vm;        
-	po::store(po::command_line_parser(argc, argv).options(desc).positional(p).run(), vm);
+	po::store(po::command_line_parser(argc, argv).options(cli_opts).positional(pos_opts).run(), vm);
 	po::notify(vm);    
 
+	// '--help' option
         if(vm.count("help")){
-	    std::cout << desc << "\n";
+	    std::cout << visible << "\n";
             return EXIT_SUCCESS;
         }
 
-	if(vm.count("input-files")){
+	// 'files-types' option
+	std::string strTypes;
+	if(vm.count("file-types")){
+	    strTypes = vm["file-types"].as< std::string >();
+	}
+	else{
+	    strTypes = DEFAULT_FILETYPES;
+	}
+	std::vector<std::string> vecTypes;
+	bt::split(vecTypes, strTypes, bt::is_any_of(TYPE_DELIMINATORS));
+	for (std::vector<std::string>::iterator i = vecTypes.begin() ; i != vecTypes.end(); ++i){
+	    std::string strExt;
+	    if(*i == TYPE_NONE){
+		strExt = "";
+	    }
+	    else if(*i == TYPE_ANY){
+		strExt = "";
+		//ToDo: Add Wildcard Handling
+	    }
+	    else{
+		strExt = FILE_EXT_DELIMINATOR + *i;
+	    }
+	    fs::path pExt(strExt);
+	    searchTypes.insert(pExt);
+	}
+
+	// input paths option
+	if(vm.count("input-paths")){
 	    std::vector<std::string> paths;
-	    paths = vm["input-files"].as< std::vector<std::string> >();
+	    paths = vm["input-paths"].as< std::vector<std::string> >();
 	    for (std::vector<std::string>::iterator i = paths.begin() ; i != paths.end(); ++i){
 		fs::path tmpPath(*i);
 		searchPaths.push_back(tmpPath);
@@ -217,7 +259,7 @@ int main(int argc, char* argv[]){
     // File Search
     for (std::vector<fs::path>::iterator i = searchPaths.begin(); i != searchPaths.end(); ++i){
 	if(fs::exists(*i)){
-	    finders.add_thread(new bt::thread(findFiles, *i, types));
+	    finders.add_thread(new bt::thread(findFiles, *i, searchTypes));
 	}
 	else{
 	    std::cerr << "Path " << *i << " not found!" << std::endl;
