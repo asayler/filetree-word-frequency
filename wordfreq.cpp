@@ -73,7 +73,10 @@ namespace po = bt::program_options;
 #define DEFAULT_MOST_STR     "10"
 #define DEFAULT_LEAST         0
 #define DEFAULT_LEAST_STR    "0"
-#define COUNTER_THREADS 5
+#define DEFAULT_WORKERS       2 //Only used if not auto-detected
+
+#define USAGE " [OPTION]... [PATH]..."
+#define DESC "Counts word frequency in files of TYPE within PATH"
 
 // *** Globals ***
 PC_Queue<fs::path>       gFiles(fs::path("")); 
@@ -83,11 +86,11 @@ TS_Map<std::string, int> gWords;
 static void findFiles(fs::path startp, std::set<fs::path> types);
 static void processFile();
 
-// *** Test Functions ***
+// *** Test and Compare Functions ***
 bool compare_word_counts(std::pair<std::string, int> first, std::pair<std::string, int> second){
     return first.second > second.second;
 }
-bool legalChar(char c){
+inline bool legalChar(char c){
     return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9');
 }
 
@@ -99,7 +102,7 @@ int main(int argc, char* argv[]){
     std::set<fs::path> searchTypes;
     int mostN;
     int leastN;
-
+    int workersN;
     bt::thread_group finders;
     bt::thread_group counters;
 
@@ -116,6 +119,9 @@ int main(int argc, char* argv[]){
 	     ": list the N most common words (DEFAULT: '" DEFAULT_MOST_STR "')")
 	    ("least,l", po::value<int>(),
 	     ": list the N least common words (DEFAULT: '" DEFAULT_LEAST_STR "')")
+	    ("worker-threads,w", po::value<int>(),
+	     ": use N worker-threads to process files\n"
+	     "  (DEFAULT: <System Optmized>)")
 	    ;
 
 	po::options_description hidden("Hidden Options");
@@ -135,7 +141,11 @@ int main(int argc, char* argv[]){
 
 	// '--help' option
         if(vm.count("help")){
-	    std::cout << visible << "\n";
+	    std::string name(argv[0]);
+	    std::cerr << "Usage:" << std::endl;
+	    std::cerr << "  " << name << USAGE << std::endl;
+	    std::cerr << DESC << std::endl;
+	    std::cerr << visible << std::endl;
             return EXIT_SUCCESS;
         }
 
@@ -172,6 +182,10 @@ int main(int argc, char* argv[]){
 	else{
 	    mostN = DEFAULT_MOST;
 	}
+	if(mostN < 0){
+	    std::cerr << "Option 'most' must be greater than or equal to 0" << std::endl;
+	    exit(EXIT_FAILURE);
+	}
 
 	// 'least' option
 	if(vm.count("least")){
@@ -179,6 +193,25 @@ int main(int argc, char* argv[]){
 	}
 	else{
 	    leastN = DEFAULT_LEAST;
+	}
+	if(leastN < 0){
+	    std::cerr << "Option 'least' must be greater than or equal to 0" << std::endl;
+	    exit(EXIT_FAILURE);
+	}
+
+	// 'worker-threads' option
+	if(vm.count("worker-threads")){
+	    workersN = vm["worker-threads"].as< int >();
+	}
+	else{
+	    workersN = bt::thread::hardware_concurrency();
+	    if(workersN == 0){
+		workersN = DEFAULT_WORKERS;
+	    }
+	}
+	if(mostN <= 0){
+	    std::cerr << "Option 'worker-threads' must be greater than 0" << std::endl;
+	    exit(EXIT_FAILURE);
 	}
 
 	// input paths option
@@ -191,21 +224,20 @@ int main(int argc, char* argv[]){
 	    }
 	}
 	else{
-	    // Default = Current Directory
 	    searchPaths.clear();
 	    searchPaths.push_back(fs::current_path());
 	}
     }
     catch(const std::exception &e) {
-	std::cerr << "error: " << e.what() << "\n";
+	std::cerr << "error: " << e.what() << std::endl;
         exit(EXIT_FAILURE);
     }
     catch(...) {
-	std::cerr << "Exception of unknown type!\n";
+	std::cerr << "Exception of unknown type!" << std::endl;
 	exit(EXIT_FAILURE);
     }
 
-    // File Search
+    // Launch File Search Threads
     for (std::vector<fs::path>::iterator i = searchPaths.begin(); i != searchPaths.end(); ++i){
 	if(fs::exists(*i)){
 	    finders.add_thread(new bt::thread(findFiles, *i, searchTypes));
@@ -215,16 +247,16 @@ int main(int argc, char* argv[]){
 	}	
     }
 
-    // File Processing
-    for(int i = 0; i < COUNTER_THREADS; i++){
+    // Launch File Processing Threads
+    for(int i = 0; i < workersN; i++){
 	counters.add_thread(new bt::thread(processFile));
     }
    
-    // Wait on Producers
+    // Wait on File Search Threads
     finders.join_all();
     gFiles.close();
 
-    // Wait of Consumers
+    // Wait of File Processing Threads
     counters.join_all();
 
     // Process and Print Results
@@ -250,7 +282,7 @@ int main(int argc, char* argv[]){
 	}
     }
     
-    return 0;
+    return EXIT_SUCCESS;
 }
 
 // Function to find all files of a set of types in tree startp
@@ -265,7 +297,6 @@ static void findFiles(fs::path startp, std::set<fs::path> types){
 		}
 	    }
 	    else if(fs::is_regular_file(startp)){
-		//Add path to queue if of proper type
 		fs::path ext = startp.extension();
 		if(types.find(ext) != types.end()){
 		    gFiles.push(startp);
@@ -277,7 +308,10 @@ static void findFiles(fs::path startp, std::set<fs::path> types){
 	}
     }
     catch(const std::exception & ex){
-	std::cerr << startp.filename() << " " << ex.what() << std::endl;
+	std::cerr << startp.filename() << " - " << ex.what() << std::endl;
+    }
+    catch(...) {
+	std::cerr << startp.filename() << " - Exception of unknown type!" << std::endl;
     }
 
     return;
@@ -287,13 +321,9 @@ static void findFiles(fs::path startp, std::set<fs::path> types){
 static void processFile(){
     
     for(fs::path p = gFiles.pop(); !p.empty(); p = gFiles.pop()){
-
 	fs::ifstream file(p);
-
 	if(file.is_open()){
-	
 	    std::string word;
-	
 	    while(file >> word){
 		std::transform(word.begin(), word.end(), word.begin(), ::tolower);
 		std::string::iterator start = word.begin();
