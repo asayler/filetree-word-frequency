@@ -256,7 +256,7 @@ int main(int argc, char* argv[]){
     finders.join_all();
     gFiles.close();
 
-    // Wait of File Processing Threads
+    // Wait on File Processing Threads
     counters.join_all();
 
     // Process and Print Results
