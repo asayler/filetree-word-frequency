@@ -39,7 +39,7 @@ CPPCFLAGS = -c -g -Wall -Wextra
 CPPLFLAGS = -g -Wall -Wextra
 
 MAINEXECUTABLES    = wordfreq
-EXAMPLEEXECUTABLES = simple_ls
+EXAMPLEEXECUTABLES =
 TESTEXECUTABLES    = 
 
 BOOSTLIBS = -lboost_filesystem -lboost_thread -lboost_system -lboost_program_options
@@ -51,13 +51,7 @@ all: $(MAINEXECUTABLES) $(EXAMPLEEXECUTABLES) $(TESTEXECUTABLES)
 wordfreq: wordfreq.o
 	$(CPPL) $(CPPLFLAGS) $^ $(BOOSTLIBS) -o $@
 
-simple_ls: simple_ls.o
-	$(CPPL) $(CPPLFLAGS) $^ $(BOOSTLIBS) -o $@
-
 wordfreq.o: wordfreq.cpp
-	$(CPPC) $(CPPCFLAGS) $< -o $@
-
-simple_ls.o: simple_ls.cpp
 	$(CPPC) $(CPPCFLAGS) $< -o $@
 
 clean:
