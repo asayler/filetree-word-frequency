@@ -68,7 +68,13 @@ FILES & DIRECTORIES
 
 BUILDING
 
-   Run:
+   This program relies on the Boost 1.50 libraries. In particular
+   Boost Filesystem, Boost Thread, Boost program Options, and Boost
+   String Algorithms. This libraries are affable with most Linux
+   distros, or online at http://www.boost.org/. On Ubuntu 12.10, the
+   necessary packge is 'libboost1.50-all-dev'.
+
+   To build, run:
       'make'
 
 RESOURCES
