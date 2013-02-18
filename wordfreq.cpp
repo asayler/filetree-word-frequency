@@ -209,7 +209,7 @@ int main(int argc, char* argv[]){
 		workersN = DEFAULT_WORKERS;
 	    }
 	}
-	if(mostN <= 0){
+	if(workersN <= 0){
 	    std::cerr << "Option 'worker-threads' must be greater than 0" << std::endl;
 	    exit(EXIT_FAILURE);
 	}
@@ -308,10 +308,10 @@ static void findFiles(fs::path startp, std::set<fs::path> types){
 	}
     }
     catch(const std::exception & ex){
-	std::cerr << startp.filename() << " - " << ex.what() << std::endl;
+	std::cerr << startp.filename() << ": " << ex.what() << std::endl;
     }
     catch(...) {
-	std::cerr << startp.filename() << " - Exception of unknown type!" << std::endl;
+	std::cerr << startp.filename() << ": Exception of unknown type!" << std::endl;
     }
 
     return;
