@@ -65,8 +65,11 @@ namespace po = bt::program_options;
 #define TYPE_NONE            "."
 #define TYPE_ANY             "*"
 
-#define DEFAULT_FILETYPES "txt"
-#define HEAD_PRINT_CNT 10
+#define DEFAULT_TYPES        "txt"
+#define DEFAULT_MOST         10
+#define DEFAULT_MOST_STR     "10"
+#define DEFAULT_LEAST         0
+#define DEFAULT_LEAST_STR    "0"
 #define COUNTER_THREADS 5
 
 template <typename K, typename V>
@@ -170,6 +173,8 @@ int main(int argc, char* argv[]){
     // Local Vars
     std::vector<fs::path> searchPaths;
     std::set<fs::path> searchTypes;
+    int mostN;
+    int leastN;
 
     bt::thread_group finders;
     bt::thread_group counters;
@@ -182,7 +187,11 @@ int main(int argc, char* argv[]){
 	     ": produce help message")
 	    ("file-types,t", po::value<std::string>(),
 	     ": comma-seperated list of file extensions to scan\n"
-	     "  ('" TYPE_NONE  "' for no extension)")
+	     "  ('" TYPE_NONE  "' for no extension) (DEFAULT: '" DEFAULT_TYPES "')")
+	    ("most,m", po::value<int>(),
+	     ": list the N most common words (DEFAULT: '" DEFAULT_MOST_STR "')")
+	    ("least,l", po::value<int>(),
+	     ": list the N least common words (DEFAULT: '" DEFAULT_LEAST_STR "')")
 	    ;
 
 	po::options_description hidden("Hidden Options");
@@ -212,7 +221,7 @@ int main(int argc, char* argv[]){
 	    strTypes = vm["file-types"].as< std::string >();
 	}
 	else{
-	    strTypes = DEFAULT_FILETYPES;
+	    strTypes = DEFAULT_TYPES;
 	}
 	std::vector<std::string> vecTypes;
 	bt::split(vecTypes, strTypes, bt::is_any_of(TYPE_DELIMINATORS));
@@ -230,6 +239,22 @@ int main(int argc, char* argv[]){
 	    }
 	    fs::path pExt(strExt);
 	    searchTypes.insert(pExt);
+	}
+
+	// 'most' option
+	if(vm.count("most")){
+	    mostN = vm["most"].as< int >();
+	}
+	else{
+	    mostN = DEFAULT_MOST;
+	}
+
+	// 'least' option
+	if(vm.count("least")){
+	    leastN = vm["least"].as< int >();
+	}
+	else{
+	    leastN = DEFAULT_LEAST;
 	}
 
 	// input paths option
@@ -278,12 +303,12 @@ int main(int argc, char* argv[]){
     // Wait of Consumers
     counters.join_all();
 
-    // Process and Print Map
+    // Process and Print Results
     std::list< std::pair<std::string, int> > wordCounts = gWords.getList();
     wordCounts.sort(compare_word_counts);
     for (std::list< std::pair<std::string, int> >::iterator i = wordCounts.begin();
 	 i != wordCounts.end(); i++){
-	if(std::distance(wordCounts.begin(), i) < HEAD_PRINT_CNT){
+	if(std::distance(wordCounts.begin(), i) < mostN){
 	    std::cout << i->second << " - " << i->first << std::endl;
 	}
 	else{
@@ -293,7 +318,7 @@ int main(int argc, char* argv[]){
     wordCounts.reverse();
     for (std::list< std::pair<std::string, int> >::iterator i = wordCounts.begin();
 	 i != wordCounts.end(); i++){
-	if(std::distance(wordCounts.begin(), i) < HEAD_PRINT_CNT){
+	if(std::distance(wordCounts.begin(), i) < leastN){
 	    std::cout << i->second << " - " << i->first << std::endl;
 	}
 	else{
