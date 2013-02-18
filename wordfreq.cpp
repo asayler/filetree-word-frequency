@@ -25,7 +25,6 @@
 // the Boost Software License, Version 1.0. (See accompanying file
 // BOOST_LICENSE_1_0 or copy at http://www.boost.org/LICENSE_1_0.txt)
 
-
 // *** BOOST Includes ***
 #define BOOST_FILESYSTEM_VERSION 3
 
@@ -59,6 +58,10 @@ namespace po = bt::program_options;
 #include <queue>
 #include <vector>
 
+// *** Local Data Structures ***
+#include "TS_Map.hpp"
+#include "PC_Queue.hpp"
+
 // *** Constants ***
 #define FILE_EXT_DELIMINATOR "."
 #define TYPE_DELIMINATORS    ","
@@ -66,90 +69,11 @@ namespace po = bt::program_options;
 #define TYPE_ANY             "*"
 
 #define DEFAULT_TYPES        "txt"
-#define DEFAULT_MOST         10
+#define DEFAULT_MOST          10
 #define DEFAULT_MOST_STR     "10"
 #define DEFAULT_LEAST         0
 #define DEFAULT_LEAST_STR    "0"
 #define COUNTER_THREADS 5
-
-template <typename K, typename V>
-class TS_Map{
-private:
-    std::map<K, V> map;
-    bt::mutex m;
-
-public:
-    V& operator[] (const K &key){
-	bt::mutex::scoped_lock l(m);
-	return map[key];
-    }
-
-    std::list< std::pair<K, V> > getList(){
-	bt::mutex::scoped_lock l(m);
-	std::list< std::pair<K, V> > lst;
-	for(typename std::map<K, V>::iterator i = map.begin(); i != map.end(); ++i){
-	    lst.push_back(*i);
-	}
-	return lst;
-    }
-
-};
-
-template <typename T>
-class PC_Queue{
-private:
-    std::queue<T> q;
-    bt::mutex m;
-    bt::condition_variable c;
-    bool closed;
-    T finished;
-
-public:
-    PC_Queue(T fin){
-	finished = fin;
-	closed = false;
-    }
-
-    void push(const T &data){
-	bt::mutex::scoped_lock l(m);
-	if(!closed){
-	    q.push(data);
-	    c.notify_one();
-	}
-	else{
-	    throw;
-	}
-    }
-    
-    T pop(){
-	T ret;
-	bt::mutex::scoped_lock l(m);
-	while(q.empty() && !closed){
-	    c.wait(l);
-	}
-	if(!q.empty()){
-	    ret = q.front();
-	    q.pop();
-	}
-	else if(closed){
-	    ret = finished;
-	}
-	else{
-	    //If locks are working, we should not get here
-	    std::cerr << "Unhandeld Case" << std::endl;
-	    std::cerr << "q.empty() = " << q.empty() << std::endl;
-	    std::cerr << "closed = " << closed << std::endl;
-	    throw;
-	}
-	return ret;
-    }
-
-    void close(){
-	bt::mutex::scoped_lock l(m);
-	closed = true;
-	c.notify_all();
-    }
-};
 
 // *** Globals ***
 PC_Queue<fs::path>       gFiles(fs::path("")); 
