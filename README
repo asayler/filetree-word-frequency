@@ -1,4 +1,83 @@
 Andy Sayler
+www.andysayler.com
 File Tree Word Frequency Analyzer
 02/2013
 
+DESCRIPTION & USAGE
+
+   A small threaded program to tabulate word frequency across a set of
+   files of type TYPE in the file tree specified by PATH. Capable of
+   searching for multiple TYPES across multiple PATHS. By default,
+   uses one thread per requested search PATH and a number of worker
+   threads matched to your system's concurrency capabilities. By
+   default, the 10 most frequent words and their counts are
+   displayed. The program is also capable of displaying the least
+   frequent words. All these options can be controlled via the Options
+   listed below.
+
+   Usage:
+     ./wordfreq [OPTION]... [PATH]...
+   Counts word frequency in files of TYPE within PATH
+   Options:
+     -h [ --help ]               : produce help message
+     -t [ --file-types ] arg     : comma-separated list of file extensions to scan
+                                   ('.' for no extension) (DEFAULT: 'txt')
+     -m [ --most ] arg           : list the N most common words (DEFAULT: '10')
+     -l [ --least ] arg          : list the N least common words (DEFAULT: '0')
+     -w [ --worker-threads ] arg : use N worker-threads to process files
+                                   (DEFAULT: <System Specific>)
+
+COPYRIGHT & LICENSE
+
+   Copyright (c) 2013 Andy Sayler (www.andysayler.com)
+
+   This file is part of the File Tree Word Frequency Analysis Program.
+
+      The File Tree Word Frequency Analysis Program is free software:
+      you can redistribute it and/or modify it under the terms of the
+      GNU General Public License as published by the Free Software
+      Foundation, either version 3 of the License, or (at your option)
+      any later version.
+
+      The File Tree Word Frequency Analysis Program is distributed in
+      the hope that it will be useful, but WITHOUT ANY WARRANTY;
+      without even the implied warranty of MERCHANTABILITY or FITNESS
+      FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+      for more details.
+
+      You should have received a copy of the GNU General Public
+      License along with the File Tree Word Frequency Analysis Program
+      (see accompanying file COPYING).  If not, see
+      <http://www.gnu.org/licenses/>.
+
+   This program uses the Boost Software Libraires in compliance with
+   the Boost Software License, Version 1.0. (See accompanying file
+   BOOST_LICENSE_1_0 or copy at http://www.boost.org/LICENSE_1_0.txt)
+
+FILES & DIRECTORIES
+
+   README            - This readme file
+   COPYING           - The GPL3 License (applies to this code)
+   BOOST_LICENSE_1_0 - The Boost 1.0 License (applies to libraries used by this code)
+
+   Makefile          - A GNU Make Makefile to build all code for this project
+   wordfreq.cpp      - Main code for the Word Frequency Analyzer program
+   PC_Queue.hpp      - Interface and implementation for a multi-producer,
+                       multi-consumer thread-safe queue
+   TS_Map.hpp        - Interface and implementation for a thread-safe associative map
+
+BUILDING
+
+   Run:
+      'make'
+
+RESOURCES
+
+   The Boost Library Documentation and examples aided in the creation of
+   this program: http://www.boost.org/
+
+   Examples and references related to use of the STL were provided by
+   http://www.cplusplus.com/
+
+   Various stackoverflow (http://stackoverflow.com/) posts were also
+   consulted.

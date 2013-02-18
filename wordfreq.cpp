@@ -113,7 +113,7 @@ int main(int argc, char* argv[]){
             ("help,h",
 	     ": produce help message")
 	    ("file-types,t", po::value<std::string>(),
-	     ": comma-seperated list of file extensions to scan\n"
+	     ": comma-separated list of file extensions to scan\n"
 	     "  ('" TYPE_NONE  "' for no extension) (DEFAULT: '" DEFAULT_TYPES "')")
 	    ("most,m", po::value<int>(),
 	     ": list the N most common words (DEFAULT: '" DEFAULT_MOST_STR "')")
@@ -121,7 +121,7 @@ int main(int argc, char* argv[]){
 	     ": list the N least common words (DEFAULT: '" DEFAULT_LEAST_STR "')")
 	    ("worker-threads,w", po::value<int>(),
 	     ": use N worker-threads to process files\n"
-	     "  (DEFAULT: <System Optmized>)")
+	     "  (DEFAULT: <System Specific>)")
 	    ;
 
 	po::options_description hidden("Hidden Options");
