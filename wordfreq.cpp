@@ -338,7 +338,7 @@ static void processFile(){
 		    }
 		    if(start < end){
 			std::string subWord(start, end);
-			++gWords[subWord];
+			gWords.safeIncrement(subWord);
 			start = end;
 		    }
 		}

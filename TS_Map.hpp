@@ -44,16 +44,17 @@ private:
 
 public:
 
-    V& operator[] (const K &key);
+    void safeIncrement(const K &key);
     std::list< std::pair<K, V> > getList();
 
 };
 
 // TS_Map Class Implementation
 
-template <typename K, typename V> V& TS_Map<K, V>::operator[] (const K &key){
+template <typename K, typename V> void TS_Map<K, V>::safeIncrement(const K &key){
     boost::mutex::scoped_lock l(m);
-    return map[key];
+    map[key]++;
+    return;
 }
 
 template <typename K, typename V> std::list< std::pair<K, V> > TS_Map<K, V>::getList(){
