@@ -51,7 +51,7 @@ all: $(MAINEXECUTABLES) $(EXAMPLEEXECUTABLES) $(TESTEXECUTABLES)
 wordfreq: wordfreq.o
 	$(CPPL) $(CPPLFLAGS) $^ $(BOOSTLIBS) -o $@
 
-wordfreq.o: wordfreq.cpp
+wordfreq.o: wordfreq.cpp PC_Queue.hpp TS_Map.hpp
 	$(CPPC) $(CPPCFLAGS) $< -o $@
 
 clean:
